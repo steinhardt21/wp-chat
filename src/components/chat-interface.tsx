@@ -280,6 +280,51 @@ export default function ChatInterface() {
     fetchMessages()
   }, [])
 
+  // Add polling for message updates
+  useEffect(() => {
+    const pollMessages = async () => {
+      try {
+        const response = await fetch("https://n8n.braiiin.com/webhook/f7643c48-da32-44e3-93b4-f483892ec9ae")
+        const data = await response.json()
+        
+        if (data?.[0]?.chats) {
+          setContacts(prevContacts => {
+            const newChats = data[0].chats.map((chat: ApiChat) => {
+              const existingContact = prevContacts.find(c => c.wa_id === chat.wa_id)
+              const messages = chat.data.map((msg: ApiMessage) => ({
+                id: msg.id,
+                text: msg.message || "",
+                sender: msg.isUser ? "me" : "them",
+                timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                status: "read"
+              }))
+              
+              return {
+                ...existingContact, // Keep existing contact data
+                id: existingContact?.id || prevContacts.length + 1,
+                name: chat.name || existingContact?.name || `Contact ${prevContacts.length + 1}`,
+                lastMessage: messages[messages.length - 1]?.text || existingContact?.lastMessage || "",
+                time: messages[messages.length - 1]?.timestamp || existingContact?.time || "",
+                unread: existingContact?.unread || 0,
+                isTyping: existingContact?.isTyping || false,
+                avatar: existingContact?.avatar || `/avatar.png`,
+                status: existingContact?.status || "online",
+                messages: messages,
+                wa_id: chat.wa_id
+              }
+            })
+            return newChats
+          })
+        }
+      } catch (error) {
+        console.error("Error polling messages:", error)
+      }
+    }
+
+    const interval = setInterval(pollMessages, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
   // Update the handleSendMessage function to send messages to the webhook
   const handleSendMessage = async () => {
     if (newMessage.trim() === "" || !activeContact) return
