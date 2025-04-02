@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import ContactList from "./contact-list"
 import MessageBubble from "./message-bubble"
 import { useMobile } from "@/hooks/use-mobile"
+import Image from 'next/image'
 
 // Update the interface definitions to match the API response
 interface ApiMessage {
@@ -27,10 +28,6 @@ interface ApiChat {
   wa_id: string
 }
 
-interface ApiResponse {
-  chats: ApiChat[]
-}
-
 // Update the Message interface to match our needs
 interface Message {
   id: number
@@ -40,7 +37,7 @@ interface Message {
   status: "sending" | "sent" | "delivered" | "read" | "failed"
 }
 
-interface Contact {
+export interface Contact {
   id: number
   name: string
   lastMessage: string
@@ -413,7 +410,7 @@ export default function ChatInterface() {
                   ? {
                       ...contact,
                       messages: contact.messages.map((msg) =>
-                        msg.id === messageId ? { ...msg, status: "read" } : msg
+                        msg.id === messageId ? { ...msg, status: "read" } : msg,
                       ),
                     }
                   : contact,
@@ -611,7 +608,13 @@ export default function ChatInterface() {
                 </Button>
               )}
               <Avatar className="h-10 w-10">
-                <img src={activeContact.avatar || "/placeholder.svg"} alt={activeContact.name} />
+                <Image 
+                  src={activeContact.avatar || "/placeholder.svg"} 
+                  alt={activeContact.name}
+                  width={40}
+                  height={40}
+                  className="rounded-full"
+                />
               </Avatar>
               <div>
                 <h2 className="font-semibold">{activeContact.name}</h2>

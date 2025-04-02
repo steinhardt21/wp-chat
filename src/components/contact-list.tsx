@@ -6,19 +6,8 @@ import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Contact } from "./chat-interface"
 
-// Define types for our data
-interface Contact {
-  id: number
-  name: string
-  lastMessage: string
-  time: string
-  unread: number
-  isTyping: boolean
-  avatar: string
-  status: "online" | "offline" | "away"
-  messages: any[] // We don't need the full message type here
-}
 
 interface ContactListProps {
   contacts: Contact[]
