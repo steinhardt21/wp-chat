@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Contact } from "./chat-interface"
+import Image from 'next/image'
 
 
 interface ContactListProps {
@@ -25,7 +26,12 @@ export default function ContactList({ contacts, activeContactId, onSelectContact
       {/* Header */}
       <div className="p-3 flex justify-between items-center bg-[#f0f2f5]">
         <Avatar className="h-10 w-10">
-          <img src="/avatar.png" alt="Your profile" />
+          <Image 
+            src="/avatar.png" 
+            alt="Your profile" 
+            width={40} 
+            height={40}
+          />
         </Avatar>
         <div className="flex gap-2">
           <Button variant="ghost" size="icon">
@@ -60,7 +66,12 @@ export default function ContactList({ contacts, activeContactId, onSelectContact
               onClick={() => onSelectContact(contact.id)}
             >
               <Avatar className="h-12 w-12 mr-3">
-                <img src={contact.avatar || "/placeholder.svg"} alt={contact.name} />
+                <Image 
+                  src={contact.avatar || "/placeholder.svg"} 
+                  alt={contact.name} 
+                  width={40} 
+                  height={40}
+                />
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-baseline">

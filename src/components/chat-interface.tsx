@@ -7,7 +7,6 @@ import { Send, Paperclip, Mic, MoreVertical, Phone, Video } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import ContactList from "./contact-list"
 import MessageBubble from "./message-bubble"
 import { useMobile } from "@/hooks/use-mobile"
@@ -171,16 +170,37 @@ export default function ChatInterface() {
   const isMobile = useMobile()
   const [messageIdCounter, setMessageIdCounter] = useState(100) // Start from a high number to avoid conflicts
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isScrolledUp, setIsScrolledUp] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Get the active contact
   const activeContact = contacts.find((contact) => contact.id === activeContactId)
 
   // Scroll to bottom of messages when messages change
   useEffect(() => {
-    if (activeContact?.messages) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (activeContact?.messages && !isScrolledUp) {
+      scrollToBottom()
     }
-  }, [activeContact?.messages])
+  }, [activeContact?.messages, isScrolledUp])
+
+  // Function to scroll to bottom
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
+      }
+    }, 100) // Small delay to ensure DOM is updated
+  }
+
+  // Handle scroll events to detect when user scrolls up
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current
+    // If we're more than 100px from the bottom, consider it "scrolled up"
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100
+    setIsScrolledUp(!isAtBottom)
+  }
 
   // Add useEffect to fetch data when component mounts
   useEffect(() => {
@@ -260,68 +280,6 @@ export default function ChatInterface() {
     fetchMessages()
   }, [])
 
-  // Add polling for message updates
-  useEffect(() => {
-    const pollMessages = async () => {
-      try {
-        const response = await fetch("https://n8n.braiiin.com/webhook/f7643c48-da32-44e3-93b4-f483892ec9ae")
-        const data = await response.json()
-        
-        if (data?.[0]?.chats) {
-          setContacts(prevContacts => {
-            const newChats = data[0].chats.map((chat: ApiChat) => {
-              const existingContact = prevContacts.find(c => c.wa_id === chat.wa_id)
-              const messages = chat.data.map((msg: ApiMessage) => ({
-                id: msg.id,
-                text: msg.message || "",
-                sender: msg.isUser ? "me" : "them",
-                timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                status: "read"
-              }))
-              
-              return {
-                ...existingContact, // Keep existing contact data
-                id: existingContact?.id || prevContacts.length + 1,
-                name: chat.name || existingContact?.name || `Contact ${prevContacts.length + 1}`,
-                lastMessage: messages[messages.length - 1]?.text || existingContact?.lastMessage || "",
-                time: messages[messages.length - 1]?.timestamp || existingContact?.time || "",
-                unread: existingContact?.unread || 0,
-                isTyping: existingContact?.isTyping || false,
-                avatar: existingContact?.avatar || `/avatar.png`,
-                status: existingContact?.status || "online",
-                messages: messages,
-                wa_id: chat.wa_id
-              }
-            })
-            return newChats
-          })
-        }
-      } catch (error) {
-        console.error("Error polling messages:", error)
-      }
-    }
-
-    const interval = setInterval(pollMessages, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Simulate typing response
-  const simulateTypingResponse = (contactId: number) => {
-    setContacts((prevContacts) =>
-      prevContacts.map((contact) => (contact.id === contactId ? { ...contact, isTyping: true } : contact)),
-    )
-
-    // Stop typing after a random delay
-    setTimeout(
-      () => {
-        setContacts((prevContacts) =>
-          prevContacts.map((contact) => (contact.id === contactId ? { ...contact, isTyping: false } : contact)),
-        )
-      },
-      Math.random() * 3000 + 1000,
-    ) // Between 1 and 4 seconds
-  }
-
   // Update the handleSendMessage function to send messages to the webhook
   const handleSendMessage = async () => {
     if (newMessage.trim() === "" || !activeContact) return
@@ -357,6 +315,7 @@ export default function ChatInterface() {
     )
 
     setNewMessage("")
+    scrollToBottom()
 
     // Send message to webhook
     try {
@@ -396,28 +355,25 @@ export default function ChatInterface() {
                 ? {
                     ...contact,
                     messages: contact.messages.map((msg) =>
-                      msg.id === messageId ? { ...msg, status: "delivered" } : msg
+                      msg.id === messageId ? { ...msg, status: "delivered" } : msg,
                     ),
                   }
                 : contact,
             ),
           )
+        }, 1000)
 
-          setTimeout(() => {
-            setContacts((prevContacts) =>
-              prevContacts.map((contact) =>
-                contact.id === activeContactId
-                  ? {
-                      ...contact,
-                      messages: contact.messages.map((msg) =>
-                        msg.id === messageId ? { ...msg, status: "read" } : msg,
-                      ),
-                    }
-                  : contact,
-              ),
-            )
-            simulateTypingResponse(activeContactId)
-          }, 2000)
+        setTimeout(() => {
+          setContacts((prevContacts) =>
+            prevContacts.map((contact) =>
+              contact.id === activeContactId
+                ? {
+                    ...contact,
+                    messages: contact.messages.map((msg) => (msg.id === messageId ? { ...msg, status: "read" } : msg)),
+                  }
+                : contact,
+            ),
+          )
         }, 1000)
       } else {
         throw new Error("Failed to send message")
@@ -436,6 +392,9 @@ export default function ChatInterface() {
             : contact,
         ),
       )
+    } finally {
+      // Scroll to bottom regardless of success or failure
+      scrollToBottom()
     }
   }
 
@@ -520,8 +479,7 @@ export default function ChatInterface() {
                   : contact,
               ),
             )
-            simulateTypingResponse(activeContactId)
-          }, 2000)
+          }, 1000)
         }, 1000)
       } else {
         throw new Error("Failed to send message")
@@ -540,6 +498,9 @@ export default function ChatInterface() {
             : contact,
         ),
       )
+    } finally {
+      // Scroll to bottom regardless of success or failure
+      scrollToBottom()
     }
   }
 
@@ -613,7 +574,6 @@ export default function ChatInterface() {
                   alt={activeContact.name}
                   width={40}
                   height={40}
-                  className="rounded-full"
                 />
               </Avatar>
               <div>
@@ -673,7 +633,11 @@ export default function ChatInterface() {
         )}
 
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4 bg-[#e4ddd6]">
+        <div
+          className="flex-1 p-4 bg-[#e4ddd6] relative overflow-y-auto"
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+        >
           {activeContact ? (
             <div className="flex flex-col gap-2">
               {activeContact.messages.map((message) => (
@@ -696,7 +660,29 @@ export default function ChatInterface() {
               </div>
             </div>
           )}
-        </ScrollArea>
+        </div>
+        {isScrolledUp && activeContact && activeContact.messages.length > 10 && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-20 right-6 bg-gray-200 hover:bg-gray-300 rounded-full p-3 shadow-md z-10 transition-all"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="lucide lucide-chevron-down"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+            <span className="sr-only">Scroll to bottom</span>
+          </button>
+        )}
 
         {/* Typing Indicator */}
         {activeContact?.isTyping && (
